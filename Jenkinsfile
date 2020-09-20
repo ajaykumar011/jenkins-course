@@ -3,11 +3,6 @@ pipeline {
       DOCKER = credentials('docker-hub')
     }
   agent any
-  stages {
-     stage('Initialize'){
-        def dockerHome = tool 'myDocker'
-        env.PATH = "${dockerHome}/bin:${env.PATH}"
-    }
 // Building your Test Images
     stage('BUILD') {
       parallel {
