@@ -1,0 +1,198 @@
+pipeline {
+	  agent any
+	  environment {
+    	MYSQL_PWD = "mydemoscret" // This is just an example.
+		}
+	  options {
+	        timestamps()
+	    }
+	
+	parameters {
+        string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+        text(name: 'BIOGRAPHY', defaultValue: '', description: 'Enter some information about the person')
+        booleanParam(name: 'TOGGLE', defaultValue: true, description: 'Toggle this value')
+        choice(name: 'CHOICE', choices: ['Staging', 'Preproduction', 'Production'], description: 'Pick the environment')
+        password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo "Hello ${params.PERSON}"
+                echo "Biography: ${params.BIOGRAPHY}"
+                echo "Toggle: ${params.TOGGLE}"
+				echo "Password: ${params.PASSWORD}"
+                echo "Choice: ${params.CHOICE}" 
+				}
+		}
+		
+		stage ('user-input') {			
+			input{
+			message "Press Ok to continue"
+			submitter "user1,user2"
+			parameters {
+			string(name:'username', defaultValue: 'user', description: 'Username of the user pressing Ok')
+			}
+		}
+		steps { 
+			echo "User: ${username} said Ok."
+			}
+		}
+
+
+
+
+
+
+
+	  
+	   //stages {
+	        stage('build') {
+	           steps {
+	               echo "This is build section"
+				   echo "This is env Variable:    ${env.MYSQL_PWD}"
+                   sh 'sh ./scripts/build.sh'
+                   }
+	        }
+	
+	        stage('BuildInfo') {
+	            steps {
+	                echo "Running Buid num: ${env.BUILD_ID} on Jenkins ${env.JENKINS_URL}"
+	                echo "BUILD_NUMBER :: ${env.BUILD_NUMBER}"
+	                echo "BUILD_ID :: ${env.BUILD_ID}"
+	                echo "BUILD_DISPLAY_NAME :: ${env.BUILD_DISPLAY_NAME}"
+	                echo "JOB_NAME :: ${env.JOB_NAME}"
+	                echo "JOB_BASE_NAME :: ${env.JOB_BASE_NAME}"
+	                echo "BUILD_TAG :: ${env.BUILD_TAG}"
+	                echo "EXECUTOR_NUMBER :: ${env.EXECUTOR_NUMBER}"
+	                echo "NODE_NAME :: ${env.NODE_NAME}"
+	                echo "NODE_LABELS :: ${env.NODE_LABELS}"
+	                echo "WORKSPACE :: ${env.WORKSPACE}"
+	                echo "JENKINS_HOME :: ${env.JENKINS_HOME}"
+	                echo "JENKINS_URL :: ${env.JENKINS_URL}"
+	                echo "BUILD_URL ::${env.BUILD_URL}"
+	                echo "JOB_URL :: ${env.JOB_URL}"
+	
+	            }
+	        }
+		
+	        stage('Test') {
+	            steps {
+	                echo 'Testing SSH connection..'
+					sh 'sh ./scripts/test.sh'
+	            }
+	        }
+
+   			 stage("foo") {
+            	steps {
+               		script {
+                    	env.RELEASE_SCOPE = input message: 'User input required', ok: 'Release!',
+                        parameters: [choice(name: 'RELEASE_SCOPE', choices: 'patch\nminor\nmajor', description: 'What is the release scope?')]
+                		}
+                	echo "${env.RELEASE_SCOPE}"
+            		}
+        	}	
+
+			stage('Example-2') {
+           	 	input {
+                message "Should we continue?"
+                ok "Yes, we should."
+                submitter "alice,bob"
+                parameters {
+                    string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+                }
+           	 }
+            steps {
+                echo "Hello, ${PERSON}, nice to meet you."
+            	}
+        	}
+
+			stage('Ex-credentials') {
+	            steps {
+	                withCredentials([
+				        file(credentialsId: 'AWS_PEM', variable: 'AWS_KEY'),
+						usernamePassword(credentialsId: 'websearch_live_db', passwordVariable: 'DB_LIVE_PWD', usernameVariable: 'DB_LIVE_USER') 
+    				]) { 
+				    	echo "My password is '${DB_LIVE_PWD}'!"
+						echo "My key is '${AWS_Key}'"
+						echo "MY DB username is '${DB_LIVE_USER}"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo mysqladmin processlist -u$DB_LIVE_USER -p$DB_LIVE_PWD'"
+
+					}
+				}
+             }
+
+
+	stage('parallel-wala-stage') { // start of parallel stages. this is just an example you can remove this if not required. 
+  		parallel { 	// One or more stages need to be included within the parallel block.
+		   stage('DeployDB') {
+	            steps {
+	                withCredentials([
+						string(credentialsId: 'websearch_mysql_pwd', variable: 'MYSQL_PWD'),
+						string(credentialsId: 'websearch_mysql_root_pwd', variable: 'MYSQL_ROOT_PWD'),
+				        file(credentialsId: 'AWS_PEM', variable: 'AWS_KEY')
+						]) { 
+				    	echo "My password is '${MYSQL_PWD}'!"
+						echo "My key is '${AWS_Key}'"
+						
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo mysqladmin processlist -uwebsearch_usr2 -p$MYSQL_PWD'"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo mysqldump -uwebsearch_usr2 -p${MYSQL_PWD} websearch_db2 > db_last.sql'"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo ls *.sql'"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo zip -r /var/www/db_last.zip db_last.sql'"
+						//sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo ls /var/www/db_last.sql'"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo rm -rf db.sql'"
+						sh "scp -i $AWS_KEY ./db/db.sql ec2-user@13.126.214.145:~/"
+						
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo mysqladmin -uroot -p${MYSQL_ROOT_PWD} drop -f websearch_db2; '"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo mysqladmin -uroot -p${MYSQL_ROOT_PWD} create websearch_db2; '"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo mysql -uroot -p${MYSQL_ROOT_PWD} websearch_db2 </home/ec2-user/db.sql '"
+						sh "ssh -i $AWS_KEY ec2-user@13.126.214.145 'sudo mysqladmin -uroot -p${MYSQL_ROOT_PWD} ping; '"
+					}
+				}
+            }
+		
+	        stage('Deploy') {
+	            steps {
+	                sh 'sh ./scripts/deploy.sh'
+	            }
+	        }
+
+		   }
+		}  // end of parallel of stages we can also define parallel of taksks.
+
+			stage('Cleanup') {
+	            steps {
+	                sh 'sh ./scripts/cleanup.sh'
+	            }
+	        }
+	}
+	  	
+	post {
+        	always {
+        	    echo 'One way or another, I have finished'
+            	 deleteDir() /* clean up our workspace */
+         		}
+        
+			success {
+             	echo 'Success'
+			 	slackSend channel: '#jenkins-builds',
+                color: 'good',
+                message: "The pipeline ${currentBuild.fullDisplayName} completed successfully."
+    			}
+         	      
+			unstable {
+             echo 'I am unstable :/'
+        	}
+        
+			failure {
+            	 mail to: 'ajay011.sharma@hotmail.com',
+					 cc: 'macme.tang@gmail.com',
+              	 subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+              	 body: "Something is wrong with ${env.BUILD_URL}"
+         	}
+
+
+        	changed {
+             echo 'Things were different before...'
+         	}	
+     	}
+	}

@@ -55,6 +55,7 @@ pipeline {
       }
     }
 // Deploying your Software
+//docker save will fetch an image : for a VM or a physical server, that would be the installation . ISO image or disk. 
     stage('DEPLOY') {
           when {
            branch 'master'  //only run these steps on the master branch
