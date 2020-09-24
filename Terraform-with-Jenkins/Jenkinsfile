@@ -41,6 +41,7 @@ pipeline {
                 }
                 dir("${env.WORKSPACE}/Terraform-with-Jenkins"){  //directory steps paramters to change the directory(if you have terraform in a dir in git)
                   //https://www.jenkins.io/doc/pipeline/steps/workflow-basic-steps/#dir-change-current-directory
+                  //In normal git configuration we do not require to change the directory
                   sh 'pwd'
                   sh 'terraform init -input=false'
                   sh 'terraform workspace select ${environment}'
