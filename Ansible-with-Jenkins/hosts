@@ -1,0 +1,13 @@
+[all:vars]
+
+ansible_connection = ssh
+ansible_ssh_private_key_file = /var/lib/jenkins/mykey
+[ubuntu]
+ubuntu1 ansible_user=root
+
+[centos]
+centos1 ansible_user=root
+
+[linux]
+ubuntu1
+centos1
