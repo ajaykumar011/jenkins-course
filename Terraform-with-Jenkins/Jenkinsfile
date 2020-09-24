@@ -44,7 +44,7 @@ pipeline {
                   //In normal git configuration we do not require to change the directory
                   sh 'pwd'
                   sh 'terraform init -input=false'
-                  sh 'terraform workspace select ${TF_WORKSPACE}'
+                  //sh 'terraform workspace select ${TF_WORKSPACE}'
                   sh 'terraform workspace new $TF_WORKSPACE || true'
                   sh "terraform plan -input=false -out tfplan --var-file=${params.TF_WORKSPACE}.tfvars"
                   sh 'terraform show -no-color tfplan > tfplan.txt'
